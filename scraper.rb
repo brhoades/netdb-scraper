@@ -8,7 +8,7 @@ $agent = Mechanize.new { |agent| agent.user_agent_alias = "Linux Mozilla" }
 $agent.add_auth( "https://itweb.mst.edu/auth-cgi-bin/cgiwrap/netdb/search-hosts.pl", ask("User"), ask("Password") { |q| q.echo = "*" } )
 
 def scrape_names( str, mode="bydesc" )
-  url = "https://itweb.mst.edu/auth-cgi-bin/cgiwrap/netdb/search-hosts.pl?mode=bydesc&search=" + str 
+  url = "https://itweb.mst.edu/auth-cgi-bin/cgiwrap/netdb/search-hosts.pl?mode=" + mode + "&search=" + str 
   html = $agent.get(url).body
   html_doc = Nokogiri::HTML(html)
 
@@ -27,7 +27,8 @@ def scrape_names( str, mode="bydesc" )
 end
 
 ref = scrape_names "reference"
-mine = mine.union scrape_names( "bjrq48", "byname" ) 
+mine = ref.concat scrape_names( "bjrq48", "byname" ) 
 
+p mine
 #list.each { |i| fp.write(i.text + " \n" + i.content + "\n\n") }
 
