@@ -3,6 +3,8 @@ require "nokogiri"
 require 'highline/import'
 require 'json'
 
+cache_file = "/tmp/netdb-scraped-cache.json"
+
 def choose_type machines
   i = 0
   itokey = { }
@@ -58,6 +60,10 @@ def scrape_names( str, mode="bydesc", reg=// )
   return addr.select { |m| m =~ reg }
 end
 
+if File.exists? cache_file
+  $machines = JSON.parse File.read File.new cache_file
+end
+
 if ARGV.size > 0
   creds = File.new(ARGV[0])
   creds.each do |l|
@@ -70,23 +76,25 @@ if ARGV.size > 0
   end
 end
 
-fp = File.new("/tmp/netdb-scraped_cache.txt", "w")
+if $machines == nil
+  fp = File.new(cache_file, "w")
 
-if $user == nil 
-  $user = ask("User")
+  if $user == nil 
+    $user = ask("User")
+  end
+  if $pass == nil
+    $pass = ask("Pass") { |q| q = q.echo = "*" }
+  end
+
+  $agent = Mechanize.new { |agent| agent.user_agent_alias = "Linux Mozilla" }
+  $agent.add_auth( "https://itweb.mst.edu/auth-cgi-bin/cgiwrap/netdb/search-hosts.pl", $user, $pass )
+  $machines = {}
+  $machines["All Reference Machines"] = scrape_names "REFERENCE", "bydesc", /^[rtcv]+[0-9]+desktop/
+  $machines["My Machines"] = scrape_names "bjrq48", "byname" 
+  $machines["Reference Laptops"] = $machines["All Reference Machines"].select { |m| m =~ /^rt/ }
+  $machines["Reference Desktops"] = $machines["All Reference Machines"].select { |m| m =~ /^r[0-9]+/ }
+
+  fp.write( JSON.generate $machines )
 end
-if $pass == nil
-  $pass = ask("Pass") { |q| q = q.echo = "*" }
-end
 
-$agent = Mechanize.new { |agent| agent.user_agent_alias = "Linux Mozilla" }
-$agent.add_auth( "https://itweb.mst.edu/auth-cgi-bin/cgiwrap/netdb/search-hosts.pl", $user, $pass )
-machines = {}
-machines["All Reference Machines"] = scrape_names "REFERENCE", "bydesc", /^[rtcv]+[0-9]+desktop/
-machines["My Machines"] = scrape_names "bjrq48", "byname" 
-machines["Reference Laptops"] = machines["All Reference Machines"].select { |m| m =~ /^rt/ }
-machines["Reference Desktops"] = machines["All Reference Machines"].select { |m| m =~ /^r[0-9]+/ }
-
-fp.write( JSON.generate machines )
-
-choice = choose_machine choose_type machines
+choice = choose_machine choose_type $machines
