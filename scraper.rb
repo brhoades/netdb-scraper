@@ -1,6 +1,7 @@
 require "mechanize"
 require "nokogiri"
 require 'highline/import'
+require 'json'
 
 def choose_type machines
   i = 0
@@ -38,31 +39,7 @@ def choose_machine machines
   itoname[choice]
 end
 
-if ARGV.size > 0
-  creds = File.new(ARGV[0])
-  creds.each do |l|
-    split = l.split('=')
-    if split[0] == "username"
-      $user = split[1].strip
-    elsif split[0] == "password"
-      $pass = split[1].strip
-    end
-  end
-end
-
-fp = File.new("scraped.txt", "w")
-
-if $user == nil 
-  $user = ask("User")
-end
-if $pass == nil
-  $pass = ask("Pass") { |q| q = q.echo = "*" }
-end
-
-$agent = Mechanize.new { |agent| agent.user_agent_alias = "Linux Mozilla" }
-$agent.add_auth( "https://itweb.mst.edu/auth-cgi-bin/cgiwrap/netdb/search-hosts.pl", $user, $pass )
-
-def scrape_names( str, mode="bydesc" )
+def scrape_names( str, mode="bydesc", reg=// )
   url = "https://itweb.mst.edu/auth-cgi-bin/cgiwrap/netdb/search-hosts.pl?mode=" + mode + "&search=" + str 
   html = $agent.get(url).body
   html_doc = Nokogiri::HTML(html)
@@ -78,11 +55,38 @@ def scrape_names( str, mode="bydesc" )
     end
   end
 
-  return addr
+  return addr.select { |m| m =~ reg }
 end
 
+if ARGV.size > 0
+  creds = File.new(ARGV[0])
+  creds.each do |l|
+    split = l.split('=')
+    if split[0] == "username"
+      $user = split[1].strip
+    elsif split[0] == "password"
+      $pass = split[1].strip
+    end
+  end
+end
+
+fp = File.new("/tmp/netdb-scraped_cache.txt", "w")
+
+if $user == nil 
+  $user = ask("User")
+end
+if $pass == nil
+  $pass = ask("Pass") { |q| q = q.echo = "*" }
+end
+
+$agent = Mechanize.new { |agent| agent.user_agent_alias = "Linux Mozilla" }
+$agent.add_auth( "https://itweb.mst.edu/auth-cgi-bin/cgiwrap/netdb/search-hosts.pl", $user, $pass )
 machines = {}
-machines[:reference_machines] = scrape_names "REFERENCE"
-machines[:bjrq48] = scrape_names( "bjrq48", "byname" ) 
+machines["All Reference Machines"] = scrape_names "REFERENCE", "bydesc", /^[rtcv]+[0-9]+desktop/
+machines["My Machines"] = scrape_names "bjrq48", "byname" 
+machines["Reference Laptops"] = machines["All Reference Machines"].select { |m| m =~ /^rt/ }
+machines["Reference Desktops"] = machines["All Reference Machines"].select { |m| m =~ /^r[0-9]+/ }
+
+fp.write( JSON.generate machines )
 
 choice = choose_machine choose_type machines
