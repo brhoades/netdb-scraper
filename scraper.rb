@@ -2,8 +2,26 @@ require "mechanize"
 require "nokogiri"
 require 'highline/import'
 require 'json'
+require 'optparse'
 
 cache_file = "/tmp/netdb-scraped-cache.json"
+
+options = {}
+OptionParser.new do |opts|
+  opts.banner = "Usage: scraper.rb [options]"
+
+  opts.on( "-c", "--credentials [FILE]","File containing credentials in cifs auth file format.") do |f|
+    options[:credentials] = f
+  end
+
+  opts.on("-r", "--respawn", "Respawn this script in an xterm instance") do |r|
+    options[:respawn] = r
+  end
+
+  opts.on("-f", "--force-recache", "Force a cache refresh") do |r|
+    options[:recache] = r
+  end
+end.parse!
 
 def choose_type machines
   i = 0
@@ -60,7 +78,12 @@ def scrape_names( str, mode="bydesc", reg=// )
   return addr.select { |m| m =~ reg }
 end
 
-if File.exists? cache_file
+if options[:respawn]
+  %x(xterm -e ruby "#{$0}"; wait )
+  exit
+end
+
+if File.exists? cache_file and !options[:recache]
   $machines = JSON.parse File.read File.new cache_file
 end
 
