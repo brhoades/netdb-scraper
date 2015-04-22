@@ -79,7 +79,7 @@ def scrape_names( str, mode="bydesc", reg=// )
 end
 
 if options[:respawn]
-  %x(xterm -e ruby "#{$0}"; wait )
+  %x(xterm -geometry 93x31+700+370 -e ruby "#{$0}"; wait )
   exit
 end
 
@@ -121,3 +121,9 @@ if $machines == nil
 end
 
 choice = choose_machine choose_type $machines
+
+pid = fork do 
+  exec "nohup rdp #{choice} &> /dev/null &" 
+end
+
+Process.detach pid
