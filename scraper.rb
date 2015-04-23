@@ -66,7 +66,7 @@ def scrape_names( str, mode="bydesc", reg=// )
 
   addr = []
 
-  list = html_doc.xpath("//tr[@class='blockTableInnerRowEven']")
+  list = html_doc.xpath("//tr[@class='blockTableInnerRowEven' or @class='blockTableInnerRowOdd']")
   list.each do |i|
     i.text.split( "\n" ).each do |j|
       if j.match ".managed.mst.edu"
